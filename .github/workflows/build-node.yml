@@ -62,12 +62,21 @@ jobs:
         run: |
           SHOULD_PUSH="false"
           
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Manual push input: ${{ github.event.inputs.push_images }}"
+          
           if [ "${{ github.event.inputs.push_images }}" = "true" ]; then
             SHOULD_PUSH="true"
+            echo "Push enabled: manual trigger"
           elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             SHOULD_PUSH="true"
+            echo "Push enabled: main branch"
           elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" =~ ^refs/tags/v.* ]]; then
             SHOULD_PUSH="true"
+            echo "Push enabled: tag"
+          else
+            echo "Push disabled: conditions not met"
           fi
           
           echo "should_push=${SHOULD_PUSH}" >> $GITHUB_OUTPUT
@@ -153,9 +162,12 @@ jobs:
         with:
           context: .
           file: dockerfiles/${{ env.IMAGE_NAME }}.Dockerfile
-          platforms: ${{ env.PLATFORMS }}
+          platforms: ${{ needs.prepare.outputs.should_push == 'true' && env.PLATFORMS || 'linux/amd64' }}
           push: ${{ needs.prepare.outputs.should_push == 'true' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          load: ${{ needs.prepare.outputs.should_push != 'true' }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
@@ -185,12 +197,13 @@ jobs:
   test-image:
     runs-on: ubuntu-latest
     needs: [prepare, build-and-push]
-    if: always() && needs.prepare.outputs.should_push == 'true' && needs.build-and-push.result == 'success'
+    if: always() && needs.build-and-push.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Login to Container Registry
+        if: needs.prepare.outputs.should_push == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -200,13 +213,25 @@ jobs:
       - name: Test image functionality
         run: |
           set +e  # Don't exit on command failures
-          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}"
           
-          echo "Testing image: $IMAGE_NAME"
-          docker pull $IMAGE_NAME || {
-            echo "Failed to pull image $IMAGE_NAME"
-            exit 1
-          }
+          if [ "${{ needs.prepare.outputs.should_push }}" = "true" ]; then
+            # Test pushed image from registry
+            IMAGE_NAME="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}"
+            echo "Testing pushed image: $IMAGE_NAME"
+            docker pull $IMAGE_NAME || {
+              echo "Failed to pull image $IMAGE_NAME"
+              exit 1
+            }
+          else
+            # Test locally built image
+            IMAGE_NAME="${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}"
+            echo "Testing local image: $IMAGE_NAME"
+            # Image should already exist from build step
+            if ! docker image inspect $IMAGE_NAME >/dev/null 2>&1; then
+              echo "Local image $IMAGE_NAME not found"
+              exit 1
+            fi
+          fi
           
           echo "=== Testing node-base image ==="
           docker run --rm $IMAGE_NAME sh -c 'java -version' && echo "✓ Java test passed" || echo "✗ Java test failed"
