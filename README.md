@@ -362,6 +362,16 @@ This occurs when the repository doesn't have the required permissions for securi
    trivy image backend-base:latest
    ```
 
+**GitHub Actions Deprecation Warnings**:
+```
+This request has been automatically failed because it uses a deprecated version
+```
+
+All GitHub Actions have been updated to their latest versions:
+- `actions/upload-artifact@v4` (was v3)
+- `actions/download-artifact@v4` (was v3)
+- `softprops/action-gh-release@v2` (was v1)
+
 **Multi-architecture Build Issues**:
 ```bash
 # If builds fail on ARM64, test locally first
