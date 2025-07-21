@@ -1,0 +1,172 @@
+version: '3.8'
+
+x-common-build: &common-build
+  context: .
+  platforms:
+    - linux/amd64
+    - linux/arm64
+
+x-common-labels: &common-labels
+  org.opencontainers.image.vendor: "Nyxis"
+  org.opencontainers.image.source: "https://github.com/your-org/nyxis-base-images"
+  org.opencontainers.image.created: "${BUILD_DATE:-}"
+  org.opencontainers.image.version: "${VERSION:-latest}"
+  org.opencontainers.image.revision: "${VCS_REF:-}"
+
+services:
+  backend-base:
+    <<: *common-build
+    build:
+      dockerfile: dockerfiles/backend-base.Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+      labels:
+        <<: *common-labels
+        org.opencontainers.image.title: "Nyxis Backend Base Image"
+        org.opencontainers.image.description: "Production-ready base image for Nyxis Backend Spring Boot applications"
+    image: ${REGISTRY:-ghcr.io/your-org}/backend-base:${VERSION:-latest}
+    command: ["sh", "-c", "echo 'Backend base image ready' && sleep 30"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    ports:
+      - "18080:8080"
+      - "18081:8081"
+    environment:
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      - SPRING_PROFILES_ACTIVE=test
+      - TZ=UTC
+
+  cli-base:
+    <<: *common-build
+    build:
+      dockerfile: dockerfiles/cli-base.Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+      labels:
+        <<: *common-labels
+        org.opencontainers.image.title: "Nyxis CLI Base Image"
+        org.opencontainers.image.description: "Ultra-minimal base image for Nyxis CLI Go applications"
+    image: ${REGISTRY:-ghcr.io/your-org}/cli-base:${VERSION:-latest}
+    # Copy a test binary for demonstration
+    volumes:
+      - ./test-binaries:/test-binaries:ro
+    command: ["/test-binaries/test-cli"]
+    environment:
+      - TZ=UTC
+
+  node-base:
+    <<: *common-build
+    build:
+      dockerfile: dockerfiles/node-base.Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+      labels:
+        <<: *common-labels
+        org.opencontainers.image.title: "Nyxis Node Base Image"
+        org.opencontainers.image.description: "Hardened base image for Nyxis Node with penetration testing tools"
+    image: ${REGISTRY:-ghcr.io/your-org}/node-base:${VERSION:-latest}
+    command: ["sh", "-c", "echo 'Node base image ready with security tools' && nmap --version && sleep 30"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    ports:
+      - "18082:8080"
+    environment:
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      - SPRING_PROFILES_ACTIVE=test
+      - TZ=UTC
+      - NYXIS_NETWORK_VALIDATION=strict
+    cap_add:
+      - NET_RAW  # Required for nmap and security tools
+    networks:
+      - nyxis-test
+
+  devcontainer:
+    <<: *common-build
+    build:
+      dockerfile: dockerfiles/devcontainer.Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+      labels:
+        <<: *common-labels
+        org.opencontainers.image.title: "Nyxis Development Container"
+        org.opencontainers.image.description: "Comprehensive development environment for Nyxis platform"
+    image: ${REGISTRY:-ghcr.io/your-org}/devcontainer:${VERSION:-latest}
+    command: ["sleep", "infinity"]
+    volumes:
+      - ./:/workspace:cached
+      - vscode-extensions:/home/vscode/.vscode-server/extensions
+      - go-modules:/go/pkg/mod
+      - maven-cache:/home/vscode/.m2
+      - claude-config:/home/vscode/.config/claude-code:ro
+    ports:
+      - "18083:8080"  # Development server port
+      - "5005:5005"   # Java debug port (backend)
+      - "5006:5006"   # Java debug port (node)
+    environment:
+      - SHELL=/bin/zsh
+      - JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
+      - MAVEN_HOME=/usr/share/maven
+      - GOPATH=/go
+      - GOROOT=/usr/local/go
+    privileged: true  # Required for Docker-in-Docker
+    networks:
+      - nyxis-test
+
+  # Test services to demonstrate base image usage
+  test-backend:
+    image: ${REGISTRY:-ghcr.io/your-org}/backend-base:${VERSION:-latest}
+    command: ["sh", "-c", "echo 'Test backend service using backend-base' && java -version && sleep infinity"]
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - SPRING_PROFILES_ACTIVE=test
+    depends_on:
+      - backend-base
+    networks:
+      - nyxis-test
+
+  test-node:
+    image: ${REGISTRY:-ghcr.io/your-org}/node-base:${VERSION:-latest}
+    command: ["sh", "-c", "echo 'Test node service using node-base' && validate-target 192.168.1.1 && sleep infinity"]
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - SPRING_PROFILES_ACTIVE=test
+      - NYXIS_NETWORK_VALIDATION=strict
+    depends_on:
+      - node-base
+    cap_add:
+      - NET_RAW
+    networks:
+      - nyxis-test
+
+volumes:
+  vscode-extensions:
+    driver: local
+  go-modules:
+    driver: local
+  maven-cache:
+    driver: local
+  claude-config:
+    driver: local
+
+networks:
+  nyxis-test:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24
