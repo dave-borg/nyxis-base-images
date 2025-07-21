@@ -33,18 +33,16 @@ RUN mkdir -p /opt/nuclei/bin && \
     rm -f nuclei.zip README.md LICENSE.md && \
     echo "Nuclei download complete"
 
-# Download gobuster binary for better reliability
+# Build gobuster from source (optimized for faster compilation)
 RUN mkdir -p /opt/gobuster/bin && \
-    echo "Downloading gobuster binary..." && \
-    ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi && \
-    if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
-    curl -L "https://github.com/OJ/gobuster/releases/download/v3.6.0/gobuster_Linux_${ARCH}.tar.gz" -o gobuster.tar.gz && \
-    tar -xzf gobuster.tar.gz && \
-    mv gobuster /opt/gobuster/bin/gobuster && \
+    echo "Building gobuster from source..." && \
+    git clone --depth 1 https://github.com/OJ/gobuster.git /tmp/gobuster-src && \
+    cd /tmp/gobuster-src && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -trimpath -o /opt/gobuster/bin/gobuster . && \
     chmod +x /opt/gobuster/bin/gobuster && \
-    rm -f gobuster.tar.gz && \
-    echo "Gobuster download complete"
+    rm -rf /tmp/gobuster-src && \
+    echo "Gobuster build complete"
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
