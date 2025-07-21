@@ -198,9 +198,9 @@ The build system uses semantic versioning with Git tags:
 ```
 
 **Version Strategy**:
-- `v1.0.0` ’ `v1.0.0`, `1.0.0`, `v1.0`, `v1`, `latest`
-- `main` branch ’ `latest`, `edge`
-- Development ’ `v1.0.0-dev.5.abc123`
+- `v1.0.0` ï¿½ `v1.0.0`, `1.0.0`, `v1.0`, `v1`, `latest`
+- `main` branch ï¿½ `latest`, `edge`
+- Development ï¿½ `v1.0.0-dev.5.abc123`
 
 ### Build Scripts
 
@@ -230,10 +230,10 @@ export GITHUB_ACTOR=your_username
 GitHub Actions workflow (`.github/workflows/build-images.yml`) provides:
 
 **Triggers**:
-- Push to `main` branch ’ Build and push with `latest` tag
-- Git tags `v*` ’ Build and push with semantic version tags
-- Pull requests ’ Build and test only
-- Manual dispatch ’ Configurable build options
+- Push to `main` branch ï¿½ Build and push with `latest` tag
+- Git tags `v*` ï¿½ Build and push with semantic version tags
+- Pull requests ï¿½ Build and test only
+- Manual dispatch ï¿½ Configurable build options
 
 **Security**:
 - Trivy vulnerability scanning
@@ -334,6 +334,40 @@ services:
 ```
 
 ## Troubleshooting
+
+### GitHub Actions Issues
+
+**SARIF Upload Permissions Error**:
+```
+Resource not accessible by integration - https://docs.github.com/rest
+```
+
+This occurs when the repository doesn't have the required permissions for security events. Solutions:
+
+1. **Use the simple workflow**: 
+   ```bash
+   # Go to Actions tab and run "Simple Build and Push" workflow
+   # This workflow skips security scanning and focuses on building
+   ```
+
+2. **Enable repository permissions**:
+   - Go to Settings â†’ Actions â†’ General
+   - Under "Workflow permissions", select "Read and write permissions"
+   - Check "Allow GitHub Actions to create and approve pull requests"
+
+3. **Alternative: Manual security scanning**:
+   ```bash
+   # Build images locally and scan
+   ./scripts/build-all.sh
+   trivy image backend-base:latest
+   ```
+
+**Multi-architecture Build Issues**:
+```bash
+# If builds fail on ARM64, test locally first
+docker buildx create --use
+docker buildx build --platform linux/amd64 -f dockerfiles/backend-base.Dockerfile .
+```
 
 ### Common Issues
 

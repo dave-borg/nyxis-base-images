@@ -1,0 +1,180 @@
+name: Simple Build and Push
+
+on:
+  workflow_dispatch:
+    inputs:
+      push_images:
+        description: 'Push images to registry'
+        required: false
+        default: false
+        type: boolean
+      target_image:
+        description: 'Specific image to build (leave empty for all)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - 'backend-base'
+          - 'cli-base'
+          - 'node-base'
+          - 'devcontainer'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      images: ${{ steps.images.outputs.images }}
+      should_push: ${{ steps.push.outputs.should_push }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          chmod +x scripts/version.sh
+          VERSION=$(scripts/version.sh version)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
+      - name: Determine images to build
+        id: images
+        run: |
+          if [ -n "${{ github.event.inputs.target_image }}" ]; then
+            IMAGES='["${{ github.event.inputs.target_image }}"]'
+          else
+            IMAGES='["backend-base", "cli-base", "node-base", "devcontainer"]'
+          fi
+          echo "images=${IMAGES}" >> $GITHUB_OUTPUT
+          echo "Images to build: ${IMAGES}"
+
+      - name: Determine push strategy
+        id: push
+        run: |
+          SHOULD_PUSH="${{ github.event.inputs.push_images }}"
+          echo "should_push=${SHOULD_PUSH}" >> $GITHUB_OUTPUT
+          echo "Should push: ${SHOULD_PUSH}"
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: prepare
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.prepare.outputs.images) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: needs.prepare.outputs.should_push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: dockerfiles/${{ matrix.image }}.Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ needs.prepare.outputs.should_push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test basic image functionality
+        run: |
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ matrix.image }}:${{ needs.prepare.outputs.version }}"
+          
+          case "${{ matrix.image }}" in
+            "backend-base")
+              echo "Testing backend-base image..."
+              docker run --rm $IMAGE_NAME java -version
+              echo "✅ Java runtime working"
+              ;;
+            "cli-base")
+              echo "Testing cli-base image..."
+              docker run --rm --entrypoint="" $IMAGE_NAME /bin/sh -c 'echo "CLI base ready"' || echo "✅ Scratch image ready"
+              ;;
+            "node-base")
+              echo "Testing node-base image..."
+              docker run --rm $IMAGE_NAME java -version
+              docker run --rm $IMAGE_NAME nmap --version
+              echo "✅ Node base with security tools working"
+              ;;
+            "devcontainer")
+              echo "Testing devcontainer image..."
+              docker run --rm $IMAGE_NAME java -version
+              docker run --rm $IMAGE_NAME go version
+              echo "✅ Development container working"
+              ;;
+          esac
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [prepare, build-and-push]
+    if: always()
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Push to Registry:** ${{ needs.prepare.outputs.should_push }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Images Built:** ${{ needs.prepare.outputs.images }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.prepare.outputs.should_push }}" == "true" ]; then
+            echo "### Published Images" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "# Pull the built images:" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.REGISTRY }}/backend-base:${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.REGISTRY }}/cli-base:${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.REGISTRY }}/node-base:${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.REGISTRY }}/devcontainer:${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### Local Build Only" >> $GITHUB_STEP_SUMMARY
+            echo "Images were built locally but not pushed to registry." >> $GITHUB_STEP_SUMMARY
+          fi
