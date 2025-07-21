@@ -12,23 +12,14 @@ RUN if [ "$USER_GID" != "1000" ] || [ "$USER_UID" != "1000" ]; then \
 
 FROM base AS java-tools
 
+# Use OpenJDK from Debian repositories as fallback
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        wget \
-        gnupg \
-        ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /etc/apt/keyrings && \
-    wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        temurin-21-jdk \
+        openjdk-21-jdk \
         maven \
     && rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 ENV MAVEN_HOME=/usr/share/maven
 
 FROM java-tools AS node-tools
@@ -59,6 +50,7 @@ RUN apt-get update && \
         perl \
         libpcap-dev \
         build-essential \
+        git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install requests beautifulsoup4 && \
@@ -67,8 +59,7 @@ RUN pip3 install requests beautifulsoup4 && \
 WORKDIR /tmp
 
 RUN git clone --depth 1 https://github.com/sullo/nikto.git && \
-    cd nikto/program && \
-    chmod +x nikto.pl && \
+    chmod +x nikto/program/nikto.pl && \
     ln -s /tmp/nikto/program/nikto.pl /usr/local/bin/nikto
 
 RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/master.tar.gz" | tar xz && \
@@ -123,7 +114,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | s
 
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     echo 'export PATH="$PATH:/usr/local/go/bin:$GOPATH/bin"' >> /home/$USERNAME/.zshrc && \
-    echo 'export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64' >> /home/$USERNAME/.zshrc && \
+    echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> /home/$USERNAME/.zshrc && \
     echo 'export MAVEN_HOME=/usr/share/maven' >> /home/$USERNAME/.zshrc && \
     echo 'alias ll="ls -la"' >> /home/$USERNAME/.zshrc && \
     echo 'alias validate-target="/usr/local/bin/validate-target"' >> /home/$USERNAME/.zshrc && \
@@ -169,8 +160,8 @@ WORKDIR /workspace
 ENTRYPOINT ["/usr/local/share/docker-init.sh"]
 CMD ["sleep", "infinity"]
 
-LABEL org.opencontainers.image.title="Nyxis Development Container" \
-      org.opencontainers.image.description="Comprehensive development environment for Nyxis platform with AI assistance" \
+LABEL org.opencontainers.image.title="Nyxis Development Container (Simple)" \
+      org.opencontainers.image.description="Simplified development environment using Debian OpenJDK" \
       org.opencontainers.image.vendor="Nyxis" \
       org.opencontainers.image.source="https://github.com/your-org/nyxis-base-images" \
       org.opencontainers.image.base.name="mcr.microsoft.com/devcontainers/go:1-1.24-bullseye"

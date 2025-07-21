@@ -15,6 +15,7 @@ declare -A IMAGES=(
     ["cli-base"]="dockerfiles/cli-base.Dockerfile"
     ["node-base"]="dockerfiles/node-base.Dockerfile"
     ["devcontainer"]="dockerfiles/devcontainer.Dockerfile"
+    ["devcontainer-simple"]="dockerfiles/devcontainer-simple.Dockerfile"
 )
 
 log() {
@@ -116,6 +117,7 @@ IMAGE_NAME:
     cli-base           Build only CLI base image  
     node-base          Build only node base image
     devcontainer       Build only development container
+    devcontainer-simple Build only simple development container (OpenJDK fallback)
     (no argument)      Build all images
 
 EXAMPLES:
@@ -156,7 +158,7 @@ main() {
                 export BUILDX_BUILDER="$2"
                 shift 2
                 ;;
-            backend-base|cli-base|node-base|devcontainer)
+            backend-base|cli-base|node-base|devcontainer|devcontainer-simple)
                 local image_name="$1"
                 local dockerfile="${IMAGES[$image_name]}"
                 if [ -z "${dockerfile:-}" ]; then

@@ -47,13 +47,13 @@ RUN apk --no-cache add \
     libpcap \
     bind-tools \
     netcat-openbsd \
+    git \
     && rm -rf /var/cache/apk/*
 
 RUN pip3 install --break-system-packages --no-cache-dir requests beautifulsoup4 && \
     rm -rf /root/.cache
 
-RUN curl -L "https://cirt.net/nikto/nikto-2.5.0.tar.gz" | tar xz -C /opt && \
-    mv /opt/nikto-2.5.0 /opt/nikto && \
+RUN git clone --depth 1 --branch master https://github.com/sullo/nikto.git /opt/nikto && \
     chmod +x /opt/nikto/program/nikto.pl
 
 COPY --from=tool-builder /opt/masscan/usr/local/bin/masscan /opt/tools/bin/masscan
