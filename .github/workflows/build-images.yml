@@ -239,9 +239,14 @@ jobs:
           case "${{ matrix.image }}" in
             "backend-base")
               # Test Java runtime and user setup
+              echo "Testing Java version..."
               docker run --rm $IMAGE_NAME sh -c 'java -version'
-              docker run --rm $IMAGE_NAME sh -c 'whoami' | grep -q nyxis
-              docker run --rm $IMAGE_NAME sh -c 'test -d /app && echo "Directory /app exists"'
+              echo "Testing user identity..."
+              USER_OUTPUT=$(docker run --rm $IMAGE_NAME sh -c 'whoami')
+              echo "Current user: $USER_OUTPUT"
+              echo "$USER_OUTPUT" | grep -q nyxis
+              echo "Testing /app directory..."
+              docker run --rm $IMAGE_NAME sh -c 'test -d /app && echo "Directory /app exists" || echo "Directory /app missing"'
               ;;
             "cli-base")
               # Test minimal runtime (no shell available in scratch)
