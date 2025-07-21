@@ -28,7 +28,11 @@ RUN mkdir -p /etc/apt/keyrings && \
         maven \
     && rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
+# Set JAVA_HOME based on architecture
+RUN ARCH=$(dpkg --print-architecture) && \
+    echo "export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-${ARCH}" >> /etc/environment && \
+    echo "export MAVEN_HOME=/usr/share/maven" >> /etc/environment
+
 ENV MAVEN_HOME=/usr/share/maven
 
 FROM java-tools AS node-tools
@@ -135,7 +139,8 @@ RUN if [ ! -d "/home/$USERNAME/.oh-my-zsh" ]; then \
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
     fi && \
     echo 'export PATH="$PATH:/usr/local/go/bin:$GOPATH/bin"' >> /home/$USERNAME/.zshrc && \
-    echo 'export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64' >> /home/$USERNAME/.zshrc && \
+    ARCH=$(dpkg --print-architecture) && \
+    echo "export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-${ARCH}" >> /home/$USERNAME/.zshrc && \
     echo 'export MAVEN_HOME=/usr/share/maven' >> /home/$USERNAME/.zshrc && \
     echo 'alias ll="ls -la"' >> /home/$USERNAME/.zshrc && \
     echo 'alias validate-target="/usr/local/bin/validate-target"' >> /home/$USERNAME/.zshrc && \
