@@ -5,6 +5,7 @@ RUN apk --no-cache add \
     git \
     curl \
     wget \
+    unzip \
     ca-certificates \
     linux-headers \
     libpcap-dev \
@@ -19,25 +20,31 @@ RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/mas
     cp bin/masscan /opt/masscan/bin/masscan && \
     chmod +x /opt/masscan/bin/masscan
 
+# Download nuclei binary for better reliability (avoid build timeouts)
 RUN mkdir -p /opt/nuclei/bin && \
-    echo "Building nuclei from source..." && \
-    git clone --depth 1 --branch v3.3.6 https://github.com/projectdiscovery/nuclei.git /tmp/nuclei-src && \
-    cd /tmp/nuclei-src && \
-    go mod download && \
-    CGO_ENABLED=0 go build -ldflags="-w -s" -o /opt/nuclei/bin/nuclei ./cmd/nuclei && \
+    echo "Downloading nuclei binary..." && \
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi && \
+    if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
+    curl -L "https://github.com/projectdiscovery/nuclei/releases/download/v3.3.6/nuclei_3.3.6_linux_${ARCH}.zip" -o nuclei.zip && \
+    unzip nuclei.zip && \
+    mv nuclei /opt/nuclei/bin/nuclei && \
     chmod +x /opt/nuclei/bin/nuclei && \
-    rm -rf /tmp/nuclei-src && \
-    echo "Nuclei build complete"
+    rm -f nuclei.zip README.md LICENSE.md && \
+    echo "Nuclei download complete"
 
+# Download gobuster binary for better reliability
 RUN mkdir -p /opt/gobuster/bin && \
-    echo "Building gobuster from source..." && \
-    git clone --depth 1 https://github.com/OJ/gobuster.git /tmp/gobuster-src && \
-    cd /tmp/gobuster-src && \
-    go mod download && \
-    CGO_ENABLED=0 go build -ldflags="-w -s" -o /opt/gobuster/bin/gobuster . && \
+    echo "Downloading gobuster binary..." && \
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi && \
+    if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
+    curl -L "https://github.com/OJ/gobuster/releases/download/v3.6.0/gobuster_Linux_${ARCH}.tar.gz" -o gobuster.tar.gz && \
+    tar -xzf gobuster.tar.gz && \
+    mv gobuster /opt/gobuster/bin/gobuster && \
     chmod +x /opt/gobuster/bin/gobuster && \
-    rm -rf /tmp/gobuster-src && \
-    echo "Gobuster build complete"
+    rm -f gobuster.tar.gz && \
+    echo "Gobuster download complete"
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
