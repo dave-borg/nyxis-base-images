@@ -156,6 +156,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=edge,enable={{is_default_branch}}
             type=sha,prefix={{branch}}-
+            type=raw,value=${{ needs.prepare.outputs.version }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -165,9 +166,7 @@ jobs:
           platforms: ${{ needs.prepare.outputs.should_push == 'true' && env.PLATFORMS || 'linux/amd64' }}
           push: ${{ needs.prepare.outputs.should_push == 'true' }}
           load: ${{ needs.prepare.outputs.should_push != 'true' }}
-          tags: |
-            ${{ steps.meta.outputs.tags }}
-            ${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
