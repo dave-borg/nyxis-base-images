@@ -178,7 +178,8 @@ USER $USERNAME
 
 WORKDIR /workspace
 
-ENTRYPOINT ["/usr/local/share/docker-init.sh"]
+# Fix entrypoint issue in base image - docker-init.sh doesn't exist
+ENTRYPOINT []
 CMD ["sleep", "infinity"]
 
 LABEL org.opencontainers.image.title="Nyxis Development Container" \
