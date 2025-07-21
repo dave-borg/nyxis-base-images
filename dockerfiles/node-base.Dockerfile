@@ -15,7 +15,9 @@ WORKDIR /tmp
 RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/master.tar.gz" | tar xz && \
     cd masscan-master && \
     make -j$(nproc) && \
-    make install DESTDIR=/opt/masscan
+    mkdir -p /opt/masscan/bin && \
+    cp bin/masscan /opt/masscan/bin/masscan && \
+    chmod +x /opt/masscan/bin/masscan
 
 RUN mkdir -p /opt/nuclei/bin && \
     echo "Building nuclei from source..." && \
@@ -62,7 +64,9 @@ RUN pip3 install --break-system-packages --no-cache-dir requests beautifulsoup4 
 RUN git clone --depth 1 --branch master https://github.com/sullo/nikto.git /opt/nikto && \
     chmod +x /opt/nikto/program/nikto.pl
 
-COPY --from=tool-builder /opt/masscan/usr/local/bin/masscan /opt/tools/bin/masscan
+RUN mkdir -p /opt/tools/bin
+
+COPY --from=tool-builder /opt/masscan/bin/masscan /opt/tools/bin/masscan
 COPY --from=tool-builder /opt/nuclei/bin/nuclei /opt/tools/bin/nuclei
 COPY --from=tool-builder /opt/gobuster/bin/gobuster /opt/tools/bin/gobuster
 
