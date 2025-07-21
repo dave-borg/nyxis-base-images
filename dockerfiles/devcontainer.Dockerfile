@@ -174,6 +174,9 @@ RUN chmod +x /usr/local/bin/development-safety-check
 ENV SHELL=/bin/zsh
 ENV CLAUDE_CONFIG_DIR=/home/$USERNAME/.config/claude-code
 
+# Ensure vscode user owns their home directory
+RUN chown -R $USERNAME:$USERNAME /home/$USERNAME
+
 USER $USERNAME
 
 WORKDIR /workspace
