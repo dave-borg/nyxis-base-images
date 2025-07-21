@@ -12,14 +12,18 @@ RUN if [ "$USER_GID" != "1000" ] || [ "$USER_UID" != "1000" ]; then \
 
 FROM base AS java-tools
 
-# Use OpenJDK from Debian repositories as fallback
+# Use OpenJDK 17 from Debian repositories (Java 21 not available in Bullseye)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        openjdk-21-jdk \
+        openjdk-17-jdk \
         maven \
     && rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+# Set JAVA_HOME dynamically
+RUN JAVA_HOME_DIR=$(find /usr/lib/jvm -name "java-17-openjdk-*" -type d | head -1) && \
+    echo "JAVA_HOME=${JAVA_HOME_DIR}" >> /etc/environment
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
 ENV MAVEN_HOME=/usr/share/maven
 
 FROM java-tools AS node-tools
@@ -126,7 +130,7 @@ RUN if [ ! -d "/home/$USERNAME/.oh-my-zsh" ]; then \
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
     fi && \
     echo 'export PATH="$PATH:/usr/local/go/bin:$GOPATH/bin"' >> /home/$USERNAME/.zshrc && \
-    echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> /home/$USERNAME/.zshrc && \
+    echo 'export JAVA_HOME=$(find /usr/lib/jvm -name "java-17-openjdk-*" -type d | head -1)' >> /home/$USERNAME/.zshrc && \
     echo 'export MAVEN_HOME=/usr/share/maven' >> /home/$USERNAME/.zshrc && \
     echo 'alias ll="ls -la"' >> /home/$USERNAME/.zshrc && \
     echo 'alias validate-target="/usr/local/bin/validate-target"' >> /home/$USERNAME/.zshrc && \
@@ -165,8 +169,10 @@ RUN chmod +x /usr/local/bin/development-safety-check
 ENV SHELL=/bin/zsh
 ENV CLAUDE_CONFIG_DIR=/home/$USERNAME/.config/claude-code
 
-# Ensure vscode user owns their home directory
-RUN chown -R $USERNAME:$USERNAME /home/$USERNAME
+# Ensure vscode user owns their home directory and create VS Code directories
+RUN chown -R $USERNAME:$USERNAME /home/$USERNAME && \
+    mkdir -p /home/$USERNAME/.vscode-server/bin /home/$USERNAME/.vscode-server/data && \
+    chown -R $USERNAME:$USERNAME /home/$USERNAME/.vscode-server
 
 USER $USERNAME
 

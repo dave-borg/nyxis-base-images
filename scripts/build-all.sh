@@ -6,17 +6,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VERSION_SCRIPT="${SCRIPT_DIR}/version.sh"
 
-REGISTRY="${REGISTRY:-ghcr.io/your-org}"
+REGISTRY="${REGISTRY:-ghcr.io/dave-borg}"
 BUILDX_BUILDER="${BUILDX_BUILDER:-nyxis-builder}"
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
-declare -A IMAGES=(
-    ["backend-base"]="dockerfiles/backend-base.Dockerfile"
-    ["cli-base"]="dockerfiles/cli-base.Dockerfile"
-    ["node-base"]="dockerfiles/node-base.Dockerfile"
-    ["devcontainer"]="dockerfiles/devcontainer.Dockerfile"
-    ["devcontainer-simple"]="dockerfiles/devcontainer-simple.Dockerfile"
-)
+# Image to Dockerfile mapping (bash 3.2 compatible)
+IMAGES="backend-base:dockerfiles/backend-base.Dockerfile cli-base:dockerfiles/cli-base.Dockerfile node-base:dockerfiles/node-base.Dockerfile devcontainer:dockerfiles/devcontainer.Dockerfile devcontainer-simple:dockerfiles/devcontainer-simple.Dockerfile"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2
@@ -90,8 +85,9 @@ build_all() {
     
     setup_buildx
     
-    for image_name in "${!IMAGES[@]}"; do
-        local dockerfile="${IMAGES[$image_name]}"
+    for image_spec in $IMAGES; do
+        image_name="${image_spec%%:*}"
+        dockerfile="${image_spec#*:}"
         log "Building ${image_name}..."
         build_image "${image_name}" "${dockerfile}"
     done
@@ -160,8 +156,17 @@ main() {
                 ;;
             backend-base|cli-base|node-base|devcontainer|devcontainer-simple)
                 local image_name="$1"
-                local dockerfile="${IMAGES[$image_name]}"
-                if [ -z "${dockerfile:-}" ]; then
+                local dockerfile=""
+                
+                # Find dockerfile for the given image name
+                for image_spec in $IMAGES; do
+                    if [ "${image_spec%%:*}" = "$image_name" ]; then
+                        dockerfile="${image_spec#*:}"
+                        break
+                    fi
+                done
+                
+                if [ -z "$dockerfile" ]; then
                     log "Error: Unknown image name: $image_name"
                     exit 1
                 fi
