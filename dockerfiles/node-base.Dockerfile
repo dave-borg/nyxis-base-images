@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS tool-builder
+FROM golang:1.24-alpine AS tool-builder
 
 RUN apk --no-cache add \
     build-base \
@@ -19,7 +19,7 @@ RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/mas
 
 RUN mkdir -p /opt/nuclei/bin && \
     echo "Building nuclei from source..." && \
-    git clone --depth 1 https://github.com/projectdiscovery/nuclei.git /tmp/nuclei-src && \
+    git clone --depth 1 --branch v3.3.6 https://github.com/projectdiscovery/nuclei.git /tmp/nuclei-src && \
     cd /tmp/nuclei-src && \
     go mod download && \
     CGO_ENABLED=0 go build -ldflags="-w -s" -o /opt/nuclei/bin/nuclei ./cmd/nuclei && \

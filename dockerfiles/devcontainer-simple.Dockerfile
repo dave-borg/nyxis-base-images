@@ -68,7 +68,7 @@ RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/mas
     make install
 
 RUN echo "Building nuclei from source..." && \
-    git clone --depth 1 https://github.com/projectdiscovery/nuclei.git /tmp/nuclei-src && \
+    git clone --depth 1 --branch v3.3.6 https://github.com/projectdiscovery/nuclei.git /tmp/nuclei-src && \
     cd /tmp/nuclei-src && \
     go mod download && \
     CGO_ENABLED=0 go build -ldflags="-w -s" -o /usr/local/bin/nuclei ./cmd/nuclei && \
@@ -118,7 +118,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | s
     sudo apt-get install -y --no-install-recommends gh && \
     sudo rm -rf /var/lib/apt/lists/*
 
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
+RUN if [ ! -d "/home/$USERNAME/.oh-my-zsh" ]; then \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
+    fi && \
     echo 'export PATH="$PATH:/usr/local/go/bin:$GOPATH/bin"' >> /home/$USERNAME/.zshrc && \
     echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> /home/$USERNAME/.zshrc && \
     echo 'export MAVEN_HOME=/usr/share/maven' >> /home/$USERNAME/.zshrc && \
