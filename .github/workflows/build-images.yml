@@ -249,15 +249,15 @@ jobs:
               ;;
             "node-base")
               # Test Java runtime and security tools
-              docker run --rm $IMAGE_NAME java -version
-              docker run --rm $IMAGE_NAME nmap --version
-              docker run --rm $IMAGE_NAME validate-target 192.168.1.1
+              docker run --rm $IMAGE_NAME sh -c 'java -version'
+              docker run --rm $IMAGE_NAME sh -c 'nmap --version'
+              docker run --rm $IMAGE_NAME sh -c 'validate-target 192.168.1.1'
               ;;
             "devcontainer")
               # Test development tools
-              docker run --rm $IMAGE_NAME java -version
-              docker run --rm $IMAGE_NAME go version
-              docker run --rm $IMAGE_NAME mvn --version
+              docker run --rm $IMAGE_NAME sh -c 'java -version'
+              docker run --rm $IMAGE_NAME sh -c 'go version'
+              docker run --rm $IMAGE_NAME sh -c 'mvn --version'
               ;;
           esac
 
