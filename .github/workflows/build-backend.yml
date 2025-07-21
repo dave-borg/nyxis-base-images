@@ -185,7 +185,7 @@ jobs:
   test-image:
     runs-on: ubuntu-latest
     needs: [prepare, build-and-push]
-    if: needs.prepare.outputs.should_push == 'true'
+    if: always() && needs.prepare.outputs.should_push == 'true' && needs.build-and-push.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
