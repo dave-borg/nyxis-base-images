@@ -200,6 +200,7 @@ jobs:
       - name: Generate SBOM
         if: needs.prepare.outputs.should_push == 'true'
         uses: anchore/sbom-action@v0
+        continue-on-error: true
         with:
           image: ${{ env.REGISTRY }}/${{ matrix.image }}:${{ needs.prepare.outputs.version }}
           format: spdx-json
@@ -208,9 +209,11 @@ jobs:
       - name: Upload SBOM
         if: needs.prepare.outputs.should_push == 'true'
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: sbom-${{ matrix.image }}
           path: sbom-${{ matrix.image }}.spdx.json
+          if-no-files-found: ignore
 
   test-images:
     runs-on: ubuntu-latest
