@@ -39,6 +39,7 @@ RUN apt-get update && \
         nmap \
         curl \
         wget \
+        unzip \
         telnet \
         netcat-openbsd \
         dnsutils \
@@ -67,10 +68,14 @@ RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/mas
     make -j$(nproc) && \
     make install
 
-RUN curl -L "https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_$(dpkg --print-architecture).tar.gz" | tar xz && \
-    mv nuclei /usr/local/bin/
+RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/amd64/;s/arm64/arm64/') && \
+    curl -L "https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_${ARCH}_linux.zip" -o nuclei.zip && \
+    unzip nuclei.zip && \
+    mv nuclei /usr/local/bin/ && \
+    rm nuclei.zip
 
-RUN curl -L "https://github.com/OJ/gobuster/releases/latest/download/gobuster_Linux_x86_64.tar.gz" | tar xz && \
+RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/;s/arm64/arm64/') && \
+    curl -L "https://github.com/OJ/gobuster/releases/latest/download/gobuster_Linux_${ARCH}.tar.gz" | tar xz && \
     mv gobuster /usr/local/bin/
 
 COPY <<'EOF' /usr/local/bin/validate-target

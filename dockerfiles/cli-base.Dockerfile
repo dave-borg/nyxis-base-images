@@ -3,11 +3,15 @@ FROM alpine:3.19 AS builder
 RUN apk --no-cache add ca-certificates tzdata && \
     update-ca-certificates
 
+RUN echo 'nobody:x:65534:65534:nobody:/:/sbin/nologin' > /tmp/passwd
+
 FROM scratch
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /tmp/passwd /etc/passwd
+
+USER 65534:65534
 
 ENV TZ=UTC \
     HOME=/ \

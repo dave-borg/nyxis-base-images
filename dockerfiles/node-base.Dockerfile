@@ -1,11 +1,14 @@
-FROM alpine:3.19 AS tool-builder
+FROM golang:1.21-alpine AS tool-builder
 
 RUN apk --no-cache add \
     build-base \
     git \
     curl \
     wget \
+    unzip \
     ca-certificates \
+    linux-headers \
+    libpcap-dev \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /tmp
@@ -15,14 +18,18 @@ RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/mas
     make -j$(nproc) && \
     make install DESTDIR=/opt/masscan
 
-RUN git clone --depth 1 https://github.com/projectdiscovery/nuclei.git && \
-    cd nuclei && \
-    go mod download && \
-    go build -o /opt/nuclei/bin/nuclei ./cmd/nuclei
+RUN mkdir -p /opt/nuclei/bin && \
+    ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') && \
+    curl -L "https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_${ARCH}_linux.zip" -o nuclei.zip && \
+    unzip nuclei.zip && \
+    mv nuclei /opt/nuclei/bin/nuclei && \
+    chmod +x /opt/nuclei/bin/nuclei
 
-RUN curl -L "https://github.com/OJ/gobuster/releases/latest/download/gobuster-linux-amd64.tar.gz" | tar xz && \
-    mkdir -p /opt/gobuster/bin && \
-    mv gobuster-linux-amd64/gobuster /opt/gobuster/bin/
+RUN mkdir -p /opt/gobuster/bin && \
+    ARCH=$(uname -m | sed 's/x86_64/x86_64/;s/aarch64/arm64/') && \
+    curl -L "https://github.com/OJ/gobuster/releases/latest/download/gobuster_Linux_${ARCH}.tar.gz" | tar xz && \
+    mv gobuster /opt/gobuster/bin/gobuster && \
+    chmod +x /opt/gobuster/bin/gobuster
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
@@ -42,7 +49,7 @@ RUN apk --no-cache add \
     netcat-openbsd \
     && rm -rf /var/cache/apk/*
 
-RUN pip3 install --no-cache-dir requests beautifulsoup4 && \
+RUN pip3 install --break-system-packages --no-cache-dir requests beautifulsoup4 && \
     rm -rf /root/.cache
 
 RUN curl -L "https://cirt.net/nikto/nikto-2.5.0.tar.gz" | tar xz -C /opt && \
