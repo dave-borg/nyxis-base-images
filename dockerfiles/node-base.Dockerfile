@@ -5,7 +5,6 @@ RUN apk --no-cache add \
     git \
     curl \
     wget \
-    unzip \
     ca-certificates \
     linux-headers \
     libpcap-dev \
@@ -19,17 +18,24 @@ RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/mas
     make install DESTDIR=/opt/masscan
 
 RUN mkdir -p /opt/nuclei/bin && \
-    ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') && \
-    curl -L "https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_${ARCH}_linux.zip" -o nuclei.zip && \
-    unzip nuclei.zip && \
-    mv nuclei /opt/nuclei/bin/nuclei && \
-    chmod +x /opt/nuclei/bin/nuclei
+    echo "Building nuclei from source..." && \
+    git clone --depth 1 https://github.com/projectdiscovery/nuclei.git /tmp/nuclei-src && \
+    cd /tmp/nuclei-src && \
+    go mod download && \
+    CGO_ENABLED=0 go build -ldflags="-w -s" -o /opt/nuclei/bin/nuclei ./cmd/nuclei && \
+    chmod +x /opt/nuclei/bin/nuclei && \
+    rm -rf /tmp/nuclei-src && \
+    echo "Nuclei build complete"
 
 RUN mkdir -p /opt/gobuster/bin && \
-    ARCH=$(uname -m | sed 's/x86_64/x86_64/;s/aarch64/arm64/') && \
-    curl -L "https://github.com/OJ/gobuster/releases/latest/download/gobuster_Linux_${ARCH}.tar.gz" | tar xz && \
-    mv gobuster /opt/gobuster/bin/gobuster && \
-    chmod +x /opt/gobuster/bin/gobuster
+    echo "Building gobuster from source..." && \
+    git clone --depth 1 https://github.com/OJ/gobuster.git /tmp/gobuster-src && \
+    cd /tmp/gobuster-src && \
+    go mod download && \
+    CGO_ENABLED=0 go build -ldflags="-w -s" -o /opt/gobuster/bin/gobuster . && \
+    chmod +x /opt/gobuster/bin/gobuster && \
+    rm -rf /tmp/gobuster-src && \
+    echo "Gobuster build complete"
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 

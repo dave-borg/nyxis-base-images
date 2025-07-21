@@ -67,15 +67,21 @@ RUN curl -L "https://github.com/robertdavidgraham/masscan/archive/refs/heads/mas
     make -j$(nproc) && \
     make install
 
-RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/amd64/;s/arm64/arm64/') && \
-    curl -L "https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_${ARCH}_linux.zip" -o nuclei.zip && \
-    unzip nuclei.zip && \
-    mv nuclei /usr/local/bin/ && \
-    rm nuclei.zip
+RUN echo "Building nuclei from source..." && \
+    git clone --depth 1 https://github.com/projectdiscovery/nuclei.git /tmp/nuclei-src && \
+    cd /tmp/nuclei-src && \
+    go mod download && \
+    CGO_ENABLED=0 go build -ldflags="-w -s" -o /usr/local/bin/nuclei ./cmd/nuclei && \
+    rm -rf /tmp/nuclei-src && \
+    echo "Nuclei build complete"
 
-RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/;s/arm64/arm64/') && \
-    curl -L "https://github.com/OJ/gobuster/releases/latest/download/gobuster_Linux_${ARCH}.tar.gz" | tar xz && \
-    mv gobuster /usr/local/bin/
+RUN echo "Building gobuster from source..." && \
+    git clone --depth 1 https://github.com/OJ/gobuster.git /tmp/gobuster-src && \
+    cd /tmp/gobuster-src && \
+    go mod download && \
+    CGO_ENABLED=0 go build -ldflags="-w -s" -o /usr/local/bin/gobuster . && \
+    rm -rf /tmp/gobuster-src && \
+    echo "Gobuster build complete"
 
 COPY <<'EOF' /usr/local/bin/validate-target
 #!/bin/bash
