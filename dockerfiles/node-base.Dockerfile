@@ -56,12 +56,14 @@ RUN apk --no-cache add \
     python3 \
     py3-pip \
     perl \
+    nikto \
     openssl \
     libpcap \
     bind-tools \
     netcat-openbsd \
     git \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && ln -sf /usr/bin/nikto.pl /usr/bin/nikto
 
 RUN pip3 install --break-system-packages --no-cache-dir requests beautifulsoup4 && \
     rm -rf /root/.cache
